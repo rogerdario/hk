@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Roger's Hong Kong</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #fff; color: #1a1a1a; padding: 1.5rem; }
+@media (prefers-color-scheme: dark) { body { background: #1a1a1a; color: #f0f0f0; } }
+.header { padding-bottom: 1rem; border-bottom: 0.5px solid rgba(0,0,0,0.12); margin-bottom: 1rem; }
+@media (prefers-color-scheme: dark) { .header { border-bottom-color: rgba(255,255,255,0.12); } }
+.header h1 { font-size: 22px; font-weight: 500; }
+.header p { font-size: 13px; color: #666; margin-top: 4px; }
+@media (prefers-color-scheme: dark) { .header p { color: #999; } }
+.view-toggle { display: flex; gap: 8px; margin-bottom: 1rem; }
+.view-btn { font-size: 12px; padding: 5px 14px; border-radius: 20px; border: 0.5px solid rgba(0,0,0,0.25); background: transparent; color: #555; cursor: pointer; transition: all 0.15s; }
+@media (prefers-color-scheme: dark) { .view-btn { border-color: rgba(255,255,255,0.25); color: #aaa; } }
+.view-btn.active { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
+@media (prefers-color-scheme: dark) { .view-btn.active { background: #f0f0f0; color: #1a1a1a; border-color: #f0f0f0; } }
+.filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 1rem; }
+.filter-btn { font-size: 12px; padding: 5px 12px; border-radius: 20px; border: 0.5px solid rgba(0,0,0,0.25); background: transparent; color: #555; cursor: pointer; transition: all 0.15s; }
+@media (prefers-color-scheme: dark) { .filter-btn { border-color: rgba(255,255,255,0.25); color: #aaa; } }
+.filter-btn:hover { background: rgba(0,0,0,0.05); }
+@media (prefers-color-scheme: dark) { .filter-btn:hover { background: rgba(255,255,255,0.08); } }
+.filter-btn.active { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
+@media (prefers-color-scheme: dark) { .filter-btn.active { background: #f0f0f0; color: #1a1a1a; border-color: #f0f0f0; } }
+.search-wrap { margin-bottom: 1rem; }
+.search-wrap input { width: 100%; font-size: 14px; padding: 8px 12px; border: 0.5px solid rgba(0,0,0,0.25); border-radius: 8px; background: #fff; color: #1a1a1a; outline: none; }
+@media (prefers-color-scheme: dark) { .search-wrap input { background: #2a2a2a; color: #f0f0f0; border-color: rgba(255,255,255,0.2); } }
+.count { font-size: 12px; color: #999; margin-bottom: 0.75rem; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; }
+.card { background: #fff; border: 0.5px solid rgba(0,0,0,0.1); border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; cursor: pointer; text-decoration: none; transition: border-color 0.15s; }
+@media (prefers-color-scheme: dark) { .card { background: #242424; border-color: rgba(255,255,255,0.1); } }
+.card:hover { border-color: rgba(0,0,0,0.35); }
+@media (prefers-color-scheme: dark) { .card:hover { border-color: rgba(255,255,255,0.3); } }
+.card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.card-name { font-size: 14px; font-weight: 500; color: #1a1a1a; line-height: 1.3; }
+@media (prefers-color-scheme: dark) { .card-name { color: #f0f0f0; } }
+.card-cat { font-size: 11px; padding: 2px 8px; border-radius: 10px; white-space: nowrap; flex-shrink: 0; margin-top: 1px; }
+.card-desc { font-size: 12px; color: #555; line-height: 1.5; }
+@media (prefers-color-scheme: dark) { .card-desc { color: #aaa; } }
+.maps-link { font-size: 11px; color: #1a6fb5; text-decoration: none; margin-top: 2px; display: inline-block; }
+.maps-link:hover { text-decoration: underline; }
+.empty { padding: 3rem 0; text-align: center; color: #999; font-size: 14px; }
+#map { display: none; height: 600px; border-radius: 12px; overflow: hidden; margin-bottom: 1rem; border: 0.5px solid rgba(0,0,0,0.1); }
+#map.visible { display: block; }
+.cat-shopping{background:#FBEAF0;color:#72243E}.cat-dining{background:#FAECE7;color:#712B13}
+.cat-bakery{background:#FAEEDA;color:#633806}.cat-coffee{background:#E1F5EE;color:#085041}
+.cat-watches{background:#E6F1FB;color:#0C447C}.cat-culture{background:#EEEDFE;color:#3C3489}
+.cat-street{background:#EAF3DE;color:#27500A}.cat-hotel{background:#F1EFE8;color:#444441}
+.cat-wine{background:#FCEBEB;color:#791F1F}.cat-activities{background:#E8F4F8;color:#0D4A5C}
+.cat-bars{background:#F0EBF8;color:#3D1A6E}.cat-books{background:#E6F5EC;color:#1A5C36}
+@media(prefers-color-scheme:dark){
+  .cat-shopping{background:#4B1528;color:#F4C0D1}.cat-dining{background:#4A1B0C;color:#F5C4B3}
+  .cat-bakery{background:#412402;color:#FAC775}.cat-coffee{background:#04342C;color:#9FE1CB}
+  .cat-watches{background:#042C53;color:#B5D4F4}.cat-culture{background:#26215C;color:#CECBF6}
+  .cat-street{background:#173404;color:#C0DD97}.cat-hotel{background:#2C2C2A;color:#D3D1C7}
+  .cat-wine{background:#501313;color:#F7C1C1}.cat-activities{background:#092736;color:#A8D8EA}
+  .cat-bars{background:#220C3D;color:#D4B8F5}.cat-books{background:#0D3320;color:#8FDCAA}
+}
+.leaflet-popup-content { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 13px; line-height: 1.5; margin: 8px 12px; }
+.leaflet-popup-content strong { font-size: 14px; }
+.leaflet-popup-content .pop-cat { font-size: 11px; opacity: 0.6; }
+.leaflet-popup-content a { color: #1a6fb5; font-size: 11px; text-decoration: none; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Roger's Hong Kong</h1>
+  <p>300+ spots — dining, bars, wine, street food, shopping, bakeries, culture, activities &amp; more</p>
+</div>
+
+<div class="search-wrap">
+  <input type="text" id="search" placeholder="Search places..." oninput="render()">
+</div>
+
+<div class="view-toggle">
+  <button class="view-btn active" id="btn-list" onclick="setView('list')">☰ List</button>
+  <button class="view-btn" id="btn-map" onclick="setView('map')">⊕ Map</button>
+</div>
+
+<div class="filters" id="filters"></div>
+<div class="count" id="count"></div>
+
+<div id="map"></div>
+<div class="grid" id="grid"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const places = [
+
+  {name:"Graph Layer",cat:"shopping",sub:"designer",desc:"Designer menswear. Closed Mon.",lat:22.2836,lng:114.1577,maps:"https://www.google.com/maps/place/?q=place_id:ChIJi2dW270BBDQRBLqozKqQBe8"},
+  {name:"Hide & Seek Store",cat:"shopping",sub:"designer",desc:"Japanese menswear.",lat:22.2831,lng:114.1535,maps:"https://www.google.com/maps/place/?q=place_id:ChIJza8Yz8kABDQRgKoeyohg5ck"},
+  {name:"DELstore",cat:"shopping",sub:"designer",desc:"Artisanal menswear.",lat:22.2823,lng:114.1558,maps:"https://www.google.com/maps/place/?q=place_id:ChIJnWdnzUIABDQRl8_p8lXMCuc"},
+  {name:"Dress Code Silver",cat:"shopping",sub:"jewellery",desc:"Silver jewelry.",lat:22.29942,lng:114.17376,maps:"https://www.google.com/maps/search/?api=1&query=22.29942,114.17376"},
+  {name:"Onka",cat:"shopping",sub:"designer",desc:"Natural plant-dyed clothing.",lat:22.2846,lng:114.1558,maps:"https://www.google.com/maps/place/?q=place_id:ChIJz2wcimQBBDQR7DI1b6Tw2uY"},
+  {name:"INK Clothing",cat:"shopping",sub:"designer",desc:"Avant-garde fashion.",lat:22.2804,lng:114.1558,maps:"https://www.google.com/maps/place/?q=place_id:ChIJ__8vfVYABDQRtdtETHwAau4"},
+  {name:"I.T Hysan One",cat:"shopping",sub:"multi-brand",desc:"Multi-brand flagship.",lat:22.2781,lng:114.1838,maps:"https://www.google.com/maps/place/?q=place_id:ChIJRTMWOVEABDQR08FLo3GCURw"},
+  {name:"Bunkaya Zakkaten",cat:"shopping",sub:"vintage",desc:"Japanese vintage.",lat:22.2811,lng:114.1558,maps:"https://www.google.com/maps/place/?q=place_id:ChIJ6dxdhO4ABDQRcmv2-AYYJ7c"},
+  {name:"cotwo",cat:"shopping",sub:"designer",desc:"Japan fashion. Wed–Thu only.",lat:22.2804,lng:114.1562,maps:"https://www.google.com/maps/place/?q=place_id:ChIJtXMw7VYABDQRIDHA9XUVyLU"},
+  {name:"D-mop",cat:"shopping",sub:"multi-brand",desc:"Contemporary streetwear.",lat:22.2816,lng:114.1857,maps:"https://www.google.com/maps/place/?q=place_id:ChIJ9Ycq0FUABDQRxa1Za9ysqgY"},
+  {name:"Wander Kagu",cat:"shopping",sub:"outdoor",desc:"Urban outdoor. Quarry Bay.",lat:22.2878,lng:114.2098,maps:"https://www.google.com/maps/place/?q=place_id:ChIJ7VDTWAsBBDQRjc7d28my8q0"},
+  {name:"A. SOCIETY",cat:"shopping",sub:"eyewear",desc:"HK eyewear at K11. Also at K11 MUSEA.",lat:22.2949,lng:114.1714,maps:"https://www.google.com/maps/place/?q=place_id:ChIJseXcsMoBBDQRCkjPfR4ZEz0"},
+  {name:"Rick Owens",cat:"shopping",sub:"designer",desc:"Central — 11am–8pm daily.",lat:22.2826,lng:114.1558,maps:"https://www.google.com/maps/place/?q=place_id:ChIJC4I-y8IBBDQRyYE-EcyMPHc"},
+  {name:"Issey Miyake",cat:"shopping",sub:"designer",desc:"Harbour City, TST — 10am–10pm daily.",lat:22.2975,lng:114.172,maps:"https://www.google.com/maps/place/?q=place_id:ChIJSfKzq_IABDQRdp-IkdTJRdo"},
+  {name:"The Minimal",cat:"shopping",sub:"vintage",desc:"Tai Hang — curated vintage & Japanese clothing.",lat:22.2819,lng:114.1908,maps:"https://www.google.com/maps/place/?q=place_id:ChIJM1oiXasBBDQRSxV0_124s0o"},
+  {name:"Luddite",cat:"shopping",sub:"vintage",desc:"Causeway Bay — vintage worker/military/leather. Hidden gem. Daily 1–9pm.",lat:22.2805,lng:114.1835,maps:"https://www.google.com/maps/place/?q=place_id:ChIJmRUPiW0BBDQRFy5gTdMCc-U"},
+  {name:"Bang Bang 70s",cat:"shopping",sub:"vintage",desc:"Central, Aberdeen St — 70s vintage, designer finds, Chanel/Gucci/LV. 12–4pm daily (call ahead).",lat:22.2836,lng:114.1502,maps:"https://www.google.com/maps/place/?q=place_id:ChIJTebjgHsABDQRd2aAtmJcG7E"},
+  {name:"Bye Buy Market",cat:"shopping",sub:"consignment",desc:"Consignment vintage/luxury — Causeway Bay. Mon 1–9pm, Tue–Thu 12–8pm, Fri–Sun 1–9pm.",lat:22.28147,lng:114.18379,maps:"https://www.google.com/maps/place/?q=place_id:ChIJFWmSEvMBBDQRaIeUhTmaGdE"},
+  {name:"The Polska Traveller (Causeway Bay)",cat:"shopping",sub:"jewellery",desc:"Artisan handmade jewellery — vintage metalwork, silver, bronze. Daily 12–8pm.",lat:22.2805,lng:114.1835,maps:"https://www.google.com/maps/place/?q=place_id:ChIJq6oOmFsABDQRblP2bHmKSsE"},
+  {name:"The Polska Traveller (Sai Ying Pun)",cat:"shopping",sub:"jewellery",desc:"Artisan jewellery. Mon/Thu/Sat 12–8pm only.",lat:22.2862,lng:114.1412,maps:"https://www.google.com/maps/place/?q=place_id:ChIJI3xlT7YBBDQR83hVWnToWac"},
+  {name:"Bar Leone",cat:"dining",price:"$$",desc:"#1 World's Best Bar.",lat:22.2836,lng:114.1502,maps:"https://www.google.com/maps/place/?q=place_id:ChIJqyyPsGUBBDQRE5twNod5Lk8"},
+  {name:"Kinsman",cat:"dining",price:"$$",desc:"Cantonese cocktails.",lat:22.2839,lng:114.1558,maps:"https://www.google.com/maps/place/?q=place_id:ChIJd5UNKj4BBDQR9tMM4J6yipk"},
+  {name:"Neighborhood",cat:"dining",desc:"French-accented market cooking.",price:"$$$$",lat:22.2836,lng:114.1502,maps:"https://www.google.com/maps/place/?q=place_id:ChIJq5eqgnsABDQRAxupXLYqR4U"},
+  {name:"Wing",cat:"dining",desc:"#2 Asia's Best.",price:"$$$$",lat:22.2836,lng:114.1535,maps:"https://www.google.com/maps/place/?q=place_id:ChIJ9TB5jAcBBDQREQJ8mH5EaVw"},
+  {name:"Whey",cat:"dining",desc:"Modern Singaporean.",price:"$$$$",lat:22.2826,lng:114.1558,maps:"https://www.google.com/maps/place/?q=place_id:ChIJne2dAP0BBDQRQXA19yVOYE4"},
+  {name:"The Chairman",cat:"dining",desc:"#1 Asia's Best 2026.",price:"$$$$",lat:22.2831,lng:114.1502,maps:"https://www.google.com/maps/place/?q=place_id:ChIJhcOtY3wABDQR39uGw41EIYM"},
+  {name:"Sushi Fujimoto",cat:"dining",desc:"Edomae sushi.",price:"$$$$",lat:22.2839,lng:114.1558,maps:"https://www.google.com/maps/place/?q=place_id:ChIJzX22_fABBDQR_3JX6Ngl3js"},
+  {name:"Ser Wong Fun",cat:"dining",desc:"Century-old snake soup.",price:"$$",lat:22.2828,lng:114.1542,maps:"https://www.google.com/maps/place/?q=place_id:ChIJRaZlaHsABDQRZcUtxH2thQc"},
+  {name:"Shui Kee",cat:"dining",desc:"Dai pai dong noodles.",price:"$",lat:22.2831,lng:114.1502,maps:"https://www.google.com/maps/place/?q=place_id:ChIJfZROYHsABDQRkoBkNJqQats"},
+  {name:"Big JJ Seafood Hotpot",cat:"dining",desc:"Quality hotpot.",price:"$$",lat:22.2839,lng:114.1558,maps:"https://www.google.com/maps/place/?q=place_id:ChIJG5vZ3uwBBDQRfoYiqaELjcE"},
+  {name:"Sun Wah Cafe",cat:"dining",desc:"Legendary egg tarts.",price:"$",lat:22.2645,lng:114.2402,maps:"https://www.google.com/maps/place/?q=place_id:ChIJ6729_k0HBDQRlaGuh7wttIQ"},
+  {name:"Cheong Gor",cat:"dining",desc:"Wok hei Cantonese.",price:"$$",lat:22.2826,lng:114.1558,maps:"https://www.google.com/maps/place/?q=place_id:ChIJM9f3YwABBDQRm5SCoxv6FB4"},
+  {name:"Gokan",cat:"dining",price:"$$",desc:"Japanese cocktail bar.",lat:22.2802,lng:114.1565,maps:"https://www.google.com/maps/place/?q=place_id:ChIJR5ZeewABBDQRSqwvf8DTOxY"},
+  {name:"Arcane",cat:"dining",desc:"Michelin-starred.",price:"$$$$",lat:22.2804,lng:114.1558,maps:"https://www.google.com/maps/place/?q=place_id:ChIJc4Jv2WQABDQRo6myIK7s1M4"},
+  {name:"Mono",cat:"dining",desc:"Venezuelan-French.",price:"$$$$",lat:22.2839,lng:114.1558,maps:"https://www.google.com/maps/place/?q=place_id:ChIJCx5dprEBBDQR0ulHVcrC7Os"},
+  {name:"Estro",cat:"dining",desc:"Neapolitan Italian.",price:"$$$$",lat:22.2839,lng:114.1558,maps:"https://www.google.com/maps/place/?q=place_id:ChIJUVwefskBBDQRLp-GyShVfyA"},
+  {name:"Duddell's",cat:"dining",desc:"Elegant Cantonese.",price:"$$$$",lat:22.2804,lng:114.1558,maps:"https://www.google.com/maps/place/?q=place_id:ChIJtQv132QABDQRl5glPL25W38"},
+  {name:"Torikaze",cat:"dining",desc:"Yakitori from Torishiki.",price:"$$$",lat:22.2826,lng:114.1558,maps:"https://www.google.com/maps/place/?q=place_id:ChIJF-OPJQABBDQR-9c38DpLZeE"},
+  {name:"Cristal Room",cat:"dining",desc:"Anne-Sophie Pic.",price:"$$$$",lat:22.2839,lng:114.1558,maps:"https://www.google.com/maps/place/?q=place_id:ChIJF7kGCOQBBDQRygojPj_1VDU"},
+  {name:"Lau Sum Kee",cat:"dining",desc:"Bamboo noodles.",price:"$",lat:22.2839,lng:114.1558,maps:"https://www.google.com/maps/place/?q=place_id:ChIJvxd8mOcBBDQRSoZgKiql49A"},
+  {name:"Tai On Coffee & Tea",cat:"dining",desc:"Revamped cha chaan teng.",price:"$",lat:22.2826,lng:114.1558,maps:"https://www.google.com/maps/place/?q=place_id:ChIJm9OTosAABDQRi2TKkkJLqBA"},
+  {name:"Yong Fu",cat:"dining",desc:"Fine Ningbo cuisine.",price:"$$$$",lat:22.2839,lng:114.1558,maps:"https://www.google.com/maps/place/?q=place_id:ChIJidd2DagBBDQR7ZT_w4lvMdY"},
+  {name:"London Restaurant",cat:"dining",desc:"Dim sum trolleys.",price:"$",lat:22.2839,lng:114.1558,maps:"https://www.google.com/maps/place/?q=place_id:ChIJx9HSqccABDQRfBvSfIH7_Y8"},
+  {name:"Tung Tat",cat:"dining",desc:"Curry fish balls.",price:"$",lat:22.2839,lng:114.1558,maps:"https://www.google.com/maps/place/?q=place_id:ChIJRTg1KMEABDQRz2y58I_BssA"},
+  {name:"Seventh Son",cat:"dining",desc:"Michelin Cantonese.",price:"$$$",lat:22.2804,lng:114.1558,maps:"https://www.google.com/maps/place/?q=place_id:ChIJ3dnIVlwABDQR0LKOA-WPqpY"},
+  {name:"My Cup of Tea",cat:"dining",desc:"HK milk tea.",price:"$",lat:22.2804,lng:114.1558,maps:"https://www.google.com/maps/place/?q=place_id:ChIJHTY9u1wABDQRttjWTNh1gCs"},
+  {name:"Jija",cat:"dining",desc:"Yunnan-inspired.",price:"$$$",lat:22.2839,lng:114.1558,maps:"https://www.google.com/maps/place/?q=place_id:ChIJg4H1h64BBDQRLWXriDmB3tY"},
+  {name:"Lai Ching Heen",cat:"dining",desc:"2-Michelin-star Cantonese.",price:"$$$$",lat:22.2975,lng:114.172,maps:"https://www.google.com/maps/place/?q=place_id:ChIJW8h1YvEABDQR976FSVBlaQA"},
+  {name:"Samsen",cat:"dining",desc:"Thai street food.",price:"$$",lat:22.2804,lng:114.1558,maps:"https://www.google.com/maps/place/?q=place_id:ChIJvYK0qEQABDQRAiM3ui4qdF8"},
+  {name:"Pang's Kitchen",cat:"dining",desc:"Michelin Cantonese.",price:"$$",lat:22.2804,lng:114.1558,maps:"https://www.google.com/maps/place/?q=place_id:ChIJAWBMkU4ABDQRWjbA0zXxX4Y"},
+  {name:"Roganic",cat:"dining",desc:"Sustainable fine dining.",price:"$$$$",lat:22.2839,lng:114.1558,maps:"https://www.google.com/maps/place/?q=place_id:ChIJYflTD-oBBDQRM6IR244lvXU"},
+  {name:"Leela",cat:"dining",desc:"Elevated Indian.",price:"$$$",lat:22.2839,lng:114.1558,maps:"https://www.google.com/maps/place/?q=place_id:ChIJ7cddEGYBBDQR1d0GJm9yPLg"},
+  {name:"HK Cuisine 1983",cat:"dining",desc:"Precision dim sum.",price:"$$",lat:22.2804,lng:114.1558,maps:"https://www.google.com/maps/place/?q=place_id:ChIJfcR7KEwABDQR_OCIECSZ6Fc"},
+  {name:"Kamcentre Roast Goose",cat:"dining",desc:"Famous roast goose.",price:"$$",lat:22.2839,lng:114.1558,maps:"https://www.google.com/maps/place/?q=place_id:ChIJa0MH2L8BBDQRDyH5ieSqkM0"},
+  {name:"Islam Food",cat:"dining",desc:"Halal Xinjiang.",price:"$$",lat:22.2804,lng:114.1558,maps:"https://www.google.com/maps/place/?q=place_id:ChIJK50rS9UABDQRuOEcFNY8d_w"},
+  {name:"Master Low Key",cat:"dining",desc:"Best egg waffles.",price:"$",lat:22.2839,lng:114.1558,maps:"https://www.google.com/maps/place/?q=place_id:ChIJTQu5UHgBBDQR08lJxjcyuw8"},
+  {name:"Sun Kwai Heung",cat:"dining",desc:"Legendary char siu. Chai Wan.",price:"$",lat:22.2645,lng:114.2402,maps:"https://www.google.com/maps/place/?q=place_id:ChIJO7TqCigCBDQRN3RCkQK_Jvw"},
+  {name:"Mosu",cat:"dining",price:"$$$$",desc:"Korean fine dining at M+.",lat:22.2975,lng:114.1609,maps:"https://www.google.com/maps/place/?q=place_id:ChIJQbEAKKgBBDQRNHV0BDwVino"},
+  {name:"Bakehouse",cat:"bakery",price:"$",desc:"French bakery — egg tarts, croissants.",lat:22.2804,lng:114.1558,maps:"https://www.google.com/maps/place/?q=place_id:ChIJ_5lZxVwABDQR5n9qhZtGvQQ"},
+  {name:"Social Goods",cat:"bakery",price:"$",desc:"Modern bakery — signature Eggies. Central.",lat:22.2826,lng:114.1558,maps:"https://www.google.com/maps/place/?q=place_id:ChIJOxgxTwABBDQR69x9yzTRA4o"},
+  {name:"Hashtag B",cat:"bakery",price:"$",desc:"Famous egg tarts & matcha croissants. Causeway Bay.",lat:22.2805,lng:114.1835,maps:"https://www.google.com/maps/place/?q=place_id:ChIJq1MxQsMBBDQRxn7Rg-OsD28"},
+  {name:"Vission Bakery",cat:"bakery",price:"$",desc:"Matcha Mochi Danish is the move. Central.",lat:22.2826,lng:114.1558,maps:"https://www.google.com/maps/place/?q=place_id:ChIJh9EX2k0BBDQRGAB9rwDzJAk"},
+  {name:"Queen Sophie",cat:"bakery",price:"$",desc:"Incredible tarts — earl grey, matcha. Kowloon City.",lat:22.3285,lng:114.1987,maps:"https://www.google.com/maps/place/?q=place_id:ChIJdegP1yoHBDQRfAx9LKvxets"},
+  {name:"Kadorar et Levain",cat:"bakery",price:"$",desc:"Famous pudding buns. Yau Ma Tei.",lat:22.3105,lng:114.1696,maps:"https://www.google.com/maps/place/?q=place_id:ChIJA6c2KcEABDQRHVHsLDDdZ5M"},
+  {name:"Soft Thunder",cat:"bakery",desc:"Best egg tarts + coffee mochi tart. Wan Chai.",lat:22.2825179,lng:114.1292809,maps:"https://www.google.com/maps/place/?q=place_id:ChIJ-0vnIA0BBDQRO4qgVcrHb6M"},
+  {name:"A-1 Bakery",cat:"bakery",price:"$",desc:"Quick-grab chain bakery. MTR Central.",lat:22.2804,lng:114.1558,maps:"https://www.google.com/maps/place/?q=place_id:ChIJ09DfkGQABDQRAxbDzd3QNF4"},
+  {name:"33 Cubread",cat:"bakery",price:"$",desc:"Celebrity square bread. Causeway Bay.",lat:22.2805,lng:114.1835,maps:"https://www.google.com/maps/place/?q=place_id:ChIJM-ewTgABBDQRv6f0GWL-Pao"},
+  {name:"Proof.",cat:"bakery",price:"$",desc:"Best croissants in HK. Happy Valley.",lat:22.272,lng:114.1835,maps:"https://www.google.com/maps/place/?q=place_id:ChIJ6fa9dkwABDQRv8Rcq8hlwMQ"},
+  {name:"Happy Bakery",cat:"bakery",price:"$",desc:"Nostalgic HK classics. Wan Chai.",lat:22.2782,lng:114.1727,maps:"https://www.google.com/maps/place/?q=place_id:ChIJl9GLL10ABDQRKPU1Y5scQts"},
+  {name:"The Baker & The Bottleman",cat:"bakery",price:"$",desc:"Roganic's bakery sibling. Lee Tung Avenue.",lat:22.2782,lng:114.1727,maps:"https://www.google.com/maps/place/?q=place_id:ChIJT0nwgCkBBDQRvodBbYqX4xw"},
+  {name:"Truffle Bakery",cat:"bakery",price:"$",desc:"Truffle salt bread heaven. Causeway Bay.",lat:22.2805,lng:114.1835,maps:"https://www.google.com/maps/place/?q=place_id:ChIJfaB4ebEBBDQR3PfSFZpXx5c"},
+  {name:"Tai Cheong Bakery",cat:"bakery",price:"$",desc:"The OG egg tart. Central.",lat:22.2804,lng:114.1558,maps:"https://www.google.com/maps/place/?q=place_id:ChIJY0UbcnsABDQRGSLSUdFl1yI"},
+  {name:"Ming Wah Bakery",cat:"bakery",price:"$",desc:"Old-school — red bean mochi pastry. Mong Kok.",lat:22.3193,lng:114.1693,maps:"https://www.google.com/maps/place/?q=place_id:ChIJfTDu8cYABDQRcnbVUHpSwpo"},
+  {name:"Butterfly Patisserie",cat:"bakery",price:"$$",desc:"Luxury Hokkaido custard flan at Rosewood. TST.",lat:22.2975,lng:114.172,maps:"https://www.google.com/maps/place/?q=place_id:ChIJ6fjLmgkBBDQRfD3sipaTwsg"},
+  {name:"Plumcot",cat:"bakery",price:"$",desc:"Tai Hang — canelés & mille-feuille. Closed Mon & Tue.",lat:22.2819,lng:114.1908,maps:"https://www.google.com/maps/place/?q=place_id:ChIJkfVqRasBBDQRX-aj5wPe-OI"},
+  {name:"Blend & Grind",cat:"coffee",price:"$",desc:"Kennedy Town — brunch boards, dog-friendly.",lat:22.2812,lng:114.1282,maps:"https://www.google.com/maps/place/?q=place_id:ChIJqYsXGF3_AzQRRCCqj9sZKPI"},
+  {name:"Fineprint",cat:"coffee",price:"$",desc:"Sheung Wan — opens 6am.",lat:22.2862,lng:114.1502,maps:"https://www.google.com/maps/place/?q=place_id:ChIJnfHGNcIBBDQRlTkTGGwwXlg"},
+  {name:"Apt. Coffee",cat:"coffee",price:"$",desc:"Wanchai — specialty coffee, sourdough toasts.",lat:22.2782,lng:114.1727,maps:"https://www.google.com/maps/place/?q=place_id:ChIJKzRZjlkBBDQRdxvRsF1yeGs"},
+  {name:"Basao Tea",cat:"coffee",price:"$",desc:"Wanchai — tranquil tea house, pineapple cake.",lat:22.2782,lng:114.1727,maps:"https://www.google.com/maps/place/?q=place_id:ChIJHSTtc6wBBDQR-u4wtit9Ov4"},
+  {name:"SonneCAD",cat:"coffee",price:"$",desc:"Tai Hang — serious single origin drip coffee only.",lat:22.2819,lng:114.1908,maps:"https://www.google.com/maps/place/?q=place_id:ChIJ9a5LJ8cBBDQR3T8hgcJjnLM"},
+  {name:"M+ Museum",cat:"culture",desc:"Asia's visual culture museum. HKD 190.",lat:22.2975,lng:114.1609,maps:"https://www.google.com/maps/place/?q=place_id:ChIJd3wXPZAABDQRDFz86-Qpbto"},
+  {name:"The Shophouse",cat:"culture",desc:"Tai Hang — art gallery & teahouse. Closed Mon.",lat:22.2819,lng:114.1908,maps:"https://www.google.com/maps/place/?q=place_id:ChIJl_7LuDoBBDQRbMWgKyzPS38"},
+  {name:"Raymond Chung Vintage Watches",cat:"watches",desc:"Central legend. Hidden Rolex gems. 9am–4pm daily. ⭐ 5.0",lat:22.2826,lng:114.1558,maps:"https://www.google.com/maps/place/?q=place_id:ChIJMZ3kl0ABBDQRBMbaXia3meI"},
+  {name:"Berne Horology",cat:"watches",desc:"Sheung Wan. Best curated vintage. Tue–Thu only. ⭐ 4.7",lat:22.2831,lng:114.1502,maps:"https://www.google.com/maps/place/?q=place_id:ChIJxW8eYHwABDQRCy9VunPdKaw"},
+  {name:"The 1916 Company (WatchBox)",cat:"watches",desc:"Central. Buy/sell/trade, all warrantied. Wed–Thu only. ⭐ 4.6",lat:22.2804,lng:114.1558,maps:"https://www.google.com/maps/place/?q=place_id:ChIJtQv132QABDQRBl-VEV9170I"},
+  {name:"28watches",cat:"watches",desc:"Causeway Bay. No-pressure pre-owned. Ask for Kevin. ⭐ 4.2",lat:22.2805,lng:114.1835,maps:"https://www.google.com/maps/place/?q=place_id:ChIJrylfoLQABDQReDQ1Zf_OEyU"},
+  {name:"Vintage Watches HK",cat:"watches",desc:"Mong Kok. Seiko, Casio, Citizen. Mon–Sat 1–9pm. ⭐ 4.7",lat:22.3193,lng:114.1693,maps:"https://www.google.com/maps/place/?q=place_id:ChIJq6pqqMcABDQR41REtLfBY50"},
+  {name:"London Watch",cat:"watches",desc:"Mong Kok. Two walls of vintage Rolex Subs & GMTs. ⭐ 4.2",lat:22.3193,lng:114.1693,maps:"https://www.google.com/maps/place/?q=place_id:ChIJs_f8kRcBBDQRnfW_YXRzf7o"},
+  {name:"@cosme Hong Kong",cat:"shopping",sub:"beauty",desc:"Japanese beauty & skincare multi-brand.",lat:22.2964,lng:114.1705,maps:"https://www.google.com/maps/search/?api=1&query=22.2963629,114.1704777"},
+  {name:"BAO BAO ISSEY MIYAKE Harbour City",cat:"shopping",sub:"designer",desc:"Iconic geometric bag boutique. Harbour City, TST.",lat:22.2959,lng:114.1689,maps:"https://www.google.com/maps/search/?api=1&query=22.2959064,114.1688665"},
+  {name:"Woosung Street Cooked Food Bazaar",cat:"dining",price:"$",desc:"Outdoor dai pai dong hawker street. Jordan.",lat:22.3077,lng:114.1705,maps:"https://www.google.com/maps/search/?api=1&query=22.3077115,114.170534"},
+  {name:"Oi Man Sang",cat:"dining",price:"$",desc:"Old-school siu mei. Mong Kok.",lat:22.3267,lng:114.1623,maps:"https://www.google.com/maps/search/?api=1&query=22.3266872,114.1623071"},
+  {name:"Sing Kee (盛記)",cat:"dining",price:"$",desc:"Classic Cantonese. Central.",lat:22.2836,lng:114.1545,maps:"https://www.google.com/maps/search/?api=1&query=22.2836203,114.1544578"},
+  {name:"Dai Pai Dong Siu Cao (Causeway Bay)",cat:"dining",price:"$",desc:"Outdoor dai pai dong. Causeway Bay.",lat:22.2798,lng:114.1805,maps:"https://www.google.com/maps/search/?api=1&query=22.2798432,114.1804789"},
+  {name:"Tung Po Kitchen",cat:"dining",price:"$$",desc:"Legendary open-air Cantonese. North Point.",lat:22.2795,lng:114.1779,maps:"https://www.google.com/maps/search/?api=1&query=22.2795199,114.1779216"},
+  {name:"Chan Kun Kee",cat:"dining",price:"$",desc:"Famous clay pot rice. Sai Kung area.",lat:22.3892,lng:114.2088,maps:"https://www.google.com/maps/search/?api=1&query=22.3891571,114.2087546"},
+  {name:"Ladies Street Sik Faan Co.",cat:"dining",price:"$",desc:"Affordable local eats. Mong Kok.",lat:22.3163,lng:114.171,maps:"https://www.google.com/maps/search/?api=1&query=22.3163037,114.1710135"},
+  {name:"Wing Fat Seafood Restaurant",cat:"dining",price:"$$",desc:"Seafood. Jordan.",lat:22.3077,lng:114.1704,maps:"https://www.google.com/maps/search/?api=1&query=22.3077189,114.1703954"},
+  {name:"Hong Kong Museum of Art",cat:"culture",desc:"HK and Chinese art collection. TST waterfront.",lat:22.2936,lng:114.1721,maps:"https://www.google.com/maps/search/?api=1&query=22.2936055,114.1721324"},
+  {name:"CHAT (Centre for Heritage, Arts and Textile)",cat:"culture",desc:"Art & heritage centre in former cotton mill. Tsuen Wan.",lat:22.3751,lng:114.1101,maps:"https://www.google.com/maps/search/?api=1&query=22.3751081,114.1101247"},
+  {name:"MASSIMODECARLO",cat:"culture",desc:"Contemporary art gallery. Central.",lat:22.2815,lng:114.1538,maps:"https://www.google.com/maps/search/?api=1&query=22.2814554,114.1538464"},
+  {name:"Para Site",cat:"culture",desc:"Leading contemporary art space. Quarry Bay.",lat:22.2913,lng:114.2088,maps:"https://www.google.com/maps/search/?api=1&query=22.2913275,114.208766"},
+  {name:"Rossi & Rossi",cat:"culture",desc:"Asian art gallery. Wong Chuk Hang.",lat:22.2491,lng:114.1683,maps:"https://www.google.com/maps/search/?api=1&query=22.2491312,114.1683045"},
+  {name:"Blindspot Gallery",cat:"culture",desc:"Photography & new media art. Wong Chuk Hang.",lat:22.2479,lng:114.1649,maps:"https://www.google.com/maps/search/?api=1&query=22.2479465,114.1648827"},
+  {name:"Hong Kong Palace Museum",cat:"culture",desc:"Imperial Chinese art & artefacts. West Kowloon.",lat:22.3018,lng:114.156,maps:"https://www.google.com/maps/search/?api=1&query=22.3017726,114.1559898"},
+  {name:"David Zwirner",cat:"culture",desc:"Blue-chip contemporary gallery. Central.",lat:22.2831,lng:114.1553,maps:"https://www.google.com/maps/search/?api=1&query=22.283054,114.1553411"},
+  {name:"Tang Contemporary Art",cat:"culture",desc:"Asian contemporary art. Central.",lat:22.283,lng:114.1553,maps:"https://www.google.com/maps/search/?api=1&query=22.2829846,114.1553327"},
+  {name:"Kiang Malingue",cat:"culture",desc:"Contemporary art gallery. Wan Chai.",lat:22.2756,lng:114.1701,maps:"https://www.google.com/maps/search/?api=1&query=22.2755593,114.1700855"},
+  {name:"Pearl Lam Projects",cat:"culture",desc:"Cross-cultural contemporary art. Central.",lat:22.2804,lng:114.1548,maps:"https://www.google.com/maps/search/?api=1&query=22.2803667,114.1548156"},
+  {name:"Gagosian",cat:"culture",desc:"World-class gallery. Central.",lat:22.2818,lng:114.157,maps:"https://www.google.com/maps/search/?api=1&query=22.281833,114.156997"},
+  {name:"DE SARTHE",cat:"culture",desc:"Contemporary & modern art. Wong Chuk Hang.",lat:22.2485,lng:114.1645,maps:"https://www.google.com/maps/search/?api=1&query=22.2485401,114.1645088"},
+  {name:"Dr Jose P. Rizal Historical Marker",cat:"culture",desc:"Historic marker. Central.",lat:22.2816,lng:114.156,maps:"https://www.google.com/maps/search/?api=1&query=22.2815528,114.1560099"},
+  {name:"Keung Kee Dai Pai Dong",cat:"street",price:"$",desc:"Authentic outdoor wok cooking — Hainan chicken, wok hei seafood. Michelin recommended. Sham Shui Po.",lat:22.3281,lng:114.1627,maps:"https://www.google.com/maps/place/?q=place_id:ChIJQYAcbbQABDQRJfmCe2_wd1o"},
+  {name:"Twist & Buckle",cat:"street",price:"$",desc:"Michelin-recommended churros specialists — glazed, sundaes, premium ingredients. TST.",lat:22.2979,lng:114.1753,maps:"https://www.google.com/maps/place/?q=place_id:ChIJk19C4Q8BBDQRRayvdXOjPRw"},
+  {name:"Fisholic",cat:"street",price:"$$",desc:"Michelin Bib Gourmand — fish-based HK street snacks, noodles, dumplings, fish skin nachos. North Point.",lat:22.2884,lng:114.1921,maps:"https://www.google.com/maps/place/?q=place_id:ChIJf-0sYcABBDQRb5gkKh5nnH4"},
+  {name:"Mrs. Fong Dessert",cat:"street",price:"$",desc:"Michelin-recommended — 18 kinds of traditional Chinese desserts, signature black sesame rolls. Jordan.",lat:22.3064,lng:114.1701,maps:"https://www.google.com/maps/place/?q=place_id:ChIJByqIjeoABDQRlCpjpCTXT48"},
+  {name:"Banh Mi Nem",cat:"street",price:"$",desc:"Michelin-recommended Vietnamese banh mi — daily-imported ingredients, 5 filling options. Wan Chai.",lat:22.2742,lng:114.1741,maps:"https://www.google.com/maps/place/?q=place_id:ChIJlQ1odwABBDQRWnz6PqbQ6SY"},
+  {name:"Block 18 Doggie's Noodle",cat:"street",price:"$",desc:"Michelin-recommended 24hr street joint — glutinous rice noodles, fake shark fin soup. Sham Shui Po.",lat:22.332,lng:114.1629,maps:"https://www.google.com/maps/place/?q=place_id:ChIJYWittrQABDQRJ59NvB9EDqw"},
+  {name:"Cheung Hing Kee Pan-fried Buns",cat:"street",price:"$",desc:"Michelin-recommended Shanghai pan-fried buns — crispy bottom, soupy pork filling. TST.",lat:22.2977,lng:114.1716,maps:"https://www.google.com/maps/place/?q=place_id:ChIJAdhciO0ABDQRcZ2QLhfxO3E"},
+  {name:"Twins Liangpi",cat:"street",price:"$",desc:"Michelin-recommended Sichuan cold noodles & spicy dishes. Mong Kok.",lat:22.3196,lng:114.1721,maps:"https://www.google.com/maps/place/?q=place_id:ChIJwbaYjQ0BBDQRJkbKy3utATQ"},
+  {name:"Sai Kwan Lo Jo",cat:"street",price:"$",desc:"Michelin Bib Gourmand — Xiguan-style stir-fried turnip cakes, sticky rice dumplings, lai fun noodles. Jordan.",lat:22.3076,lng:114.1666,maps:"https://www.google.com/maps/place/?q=place_id:ChIJVaRP0vcBBDQR6X677vq4cmg"},
+  {name:"Kai Kai Dessert",cat:"street",price:"$",desc:"Michelin Bib Gourmand — 40yr-old Chiuchow desserts, red bean soup, black sesame soup. Jordan. Open til 1am.",lat:22.3066,lng:114.1709,maps:"https://www.google.com/maps/place/?q=place_id:ChIJFRQ7_lxG_xMRFJXUfqxR2O4"},
+  {name:"Kung Wo Beancurd Factory",cat:"street",price:"$",desc:"Michelin Bib Gourmand — legendary tofu pudding, homemade soy milk, tofu puffs. Sham Shui Po.",lat:22.3311,lng:114.1635,maps:"https://www.google.com/maps/place/?q=place_id:ChIJlSRIwLQABDQRT_B6YwxZJ_Q"},
+  {name:"Mammy Pancake",cat:"street",price:"$",desc:"Michelin-recommended egg waffles — 15+ flavours including seasonal specials. Multiple locations.",lat:22.3061,lng:114.1872,maps:"https://www.google.com/maps/place/?q=place_id:ChIJh8j7LN4ABDQR_oOYAVZcSpI"},
+  {name:"So Kee",cat:"street",price:"$",desc:"Michelin-recommended old-school tea stall — yuen yeung, pork chop noodles, French toast. Sham Shui Po.",lat:22.3313,lng:114.1654,maps:"https://www.google.com/maps/place/?q=place_id:ChIJK2pNJbUABDQRwBS6Zx0xn14"},
+  {name:"Hop Yik Tai",cat:"street",price:"$",desc:"Michelin-recommended cheong fun — silky rice noodle rolls with peanut, sweet & soy sauce. Sham Shui Po.",lat:22.3305,lng:114.1612,maps:"https://www.google.com/maps/place/?q=place_id:ChIJo2b0erMABDQRZRNcBgLt6QM"},
+  {name:"Ki Tsui Cake Shop",cat:"street",price:"$",desc:"Michelin-recommended traditional pastries — mooncakes, wife cakes, red bean mochi. Mong Kok.",lat:22.3217,lng:114.1705,maps:"https://www.google.com/maps/place/?q=place_id:ChIJz0F-9cgABDQREhhObACmjdg"},
+  {name:"Joyful Dessert House",cat:"street",price:"$",desc:"Michelin-recommended desserts — green tea lava cake, mango napoleon, parfait. Mong Kok.",lat:22.3178,lng:114.1728,maps:"https://www.google.com/maps/place/?q=place_id:ChIJhzv_bsYABDQR8XR7Wd3LXlk"},
+  {name:"Kau Kee",cat:"street",price:"$",desc:"Michelin Bib Gourmand — legendary beef brisket noodles, clear or curry broth. Central.",lat:22.2842,lng:114.1525,maps:"https://www.google.com/maps/place/?q=place_id:ChIJaRNph3wABDQRZ_67CO39BWs"},
+  {name:"Tim Ho Wan",cat:"street",price:"$",desc:"Michelin Bib Gourmand — world's most affordable Michelin dim sum. Baked BBQ pork buns are essential. Central.",lat:22.2845,lng:114.1581,maps:"https://www.google.com/maps/place/?q=place_id:ChIJFaKIAGMABDQRN-JA3EpHFJc"},
+  {name:"Little Tai Hang Hotel",cat:"hotel",desc:"Charming boutique hotel in Tai Hang — harbour view rooms, rooftop terrace, home to Tipsy & Qué Pasa restaurants.",lat:22.2798,lng:114.1925,maps:"https://www.google.com/maps/place/?q=place_id:ChIJeycSJasBBDQROWifYVaBRic"},
+  {name:"Chin Jor Fan Tong",cat:"dining",price:"$$",desc:"Groovy dai-pai-dong-style noodle spot — spicy, sweet, sour broths. Must-try braised beef sweet potato noodles. Tai Hang.",lat:22.2781,lng:114.1928,maps:"https://www.google.com/maps/place/?q=place_id:ChIJ0ZRMc1QBBDQRaRi7KJzkocs"},
+  {name:"Tipsy Restaurant & Bar",cat:"dining",price:"$$$",desc:"Modern European small plates on rooftop terrace of Little Tai Hang hotel — truffle toast, crab cake, sea urchin pasta.",lat:22.2798,lng:114.1925,maps:"https://www.google.com/maps/place/?q=place_id:ChIJ8Zz1JKsBBDQRGPjQLDaielE"},
+  {name:"Qué Pasa Tapas y Vino",cat:"dining",price:"$$",desc:"Spanish tapas & wine — charcoal-grilled octopus & suckling pig. Happy hour tapas & drinks HKD48 from 3–8pm. Tai Hang.",lat:22.2798,lng:114.1925,maps:"https://www.google.com/maps/place/?q=place_id:ChIJ7zOU7EIBBDQRoekWKfajAuU"},
+  {name:"Hassun Japanese Restaurant",cat:"dining",price:"$$",desc:"Intimate Japanese all-rounder — sea grapes, soft-shell crab tempura, grilled eel on rice. Tai Hang.",lat:22.2794,lng:114.1925,maps:"https://www.google.com/maps/place/?q=place_id:ChIJk14FO6sBBDQRALMz7OhsRIQ"},
+  {name:"Nocino",cat:"dining",price:"$$",desc:"Viral Swiss-Italian — ox cheek pappardelle, 'nduja reginette, Wagyu tartare. Tai Hang.",lat:22.2795,lng:114.1923,maps:"https://www.google.com/maps/place/?q=place_id:ChIJt-Ju82MBBDQRkfupCfOyq-0"},
+  {name:"Dough Kitchen",cat:"dining",price:"$$",desc:"Handmade pasta & pizza — sea urchin pasta, Wagyu bolognese, truffle Parma ham pizza. Tai Hang.",lat:22.2782,lng:114.1922,maps:"https://www.google.com/maps/place/?q=place_id:ChIJBfj8T6sBBDQRL1EkkADgjCs"},
+  {name:"Tandoori Junction",cat:"dining",price:"$",desc:"Authentic Indian — tandoori lamb shank, butter chicken, paneer tikka masala. Tai Hang.",lat:22.2788,lng:114.1912,maps:"https://www.google.com/maps/place/?q=place_id:ChIJTz58NY8BBDQRNJzUJTUKhfc"},
+  {name:"Kadokawa",cat:"dining",price:"$$",desc:"Lively Tokyo-style izakaya — ox tongue, Ibérico char siu, eel skewers, sake clams. Tai Hang. Closed Mon.",lat:22.2787,lng:114.1922,maps:"https://www.google.com/maps/place/?q=place_id:ChIJY9V33DsBBDQRpd79pRziehI"},
+  {name:"ALÓ Restobar",cat:"dining",price:"$$$",desc:"Contemporary European — signature roasted suckling pig, bone-in rib-eye, beef cheek tagliatelle. Tai Hang.",lat:22.2782,lng:114.1919,maps:"https://www.google.com/maps/place/?q=place_id:ChIJYWbYYwABBDQRz3_5z5aisBE"},
+  {name:"Bing Kee Cha Dong",cat:"dining",price:"$",desc:"Legendary 1957 open-air dai pai dong — pork chop noodles HKD32, condensed milk toast, iced milk tea. Tai Hang. Closes 3pm, closed Mon.",lat:22.2785,lng:114.1924,maps:"https://www.google.com/maps/place/?q=place_id:ChIJXa3BRasBBDQRrTkHy5pIhRg"},
+  {name:"Sushi Hikari",cat:"dining",price:"$$$",desc:"Cosy sushiya — omakase from HKD880, 12-piece sushi lunch HKD420. Highly seasonal, very fresh. Tai Hang. ⭐ 4.9",lat:22.2802,lng:114.1924,maps:"https://www.google.com/maps/place/?q=place_id:ChIJx77ttx8BBDQRUQpfjkors64"},
+  {name:"Izakaya Tsuki",cat:"dining",price:"$$$",desc:"Japanese izakaya — toro sashimi/sushi, assorted tempura, premium omakase. Tai Hang. Closed Mon.",lat:22.279,lng:114.1921,maps:"https://www.google.com/maps/place/?q=place_id:ChIJ55I8oUsBBDQRCRq4qR98oa4"},
+  {name:"Chatterbox Café",cat:"dining",price:"$$",desc:"Iconic Singaporean chicken rice chain — cleanest, least oily Mandarin chicken rice HKD142. Multiple locations.",lat:22.2946,lng:114.1746,maps:"https://www.google.com/maps/place/?q=place_id:ChIJRWh_m_EABDQRxNumvd_VtIE"},
+  {name:"Tian Tian Hainanese Chicken Rice",cat:"dining",price:"$$",desc:"Famous Singapore Michelin-recommended chicken rice — poached & roasted options, chicken fat rice. Causeway Bay.",lat:22.2819,lng:114.1863,maps:"https://www.google.com/maps/place/?q=place_id:ChIJDdWW3VUABDQRGdUJwknxv3E"},
+  {name:"Café Causette",cat:"dining",price:"$$$$",desc:"Mandarin Oriental's all-day café — legendary Hainan chicken rice HKD380 since 1994. Lemongrass-infused rice. Central. $$$$",lat:22.2819,lng:114.1595,maps:"https://www.google.com/maps/place/?q=place_id:ChIJuY8iZWQABDQR8jxci4mKPFc"},
+  {name:"Auntie MALAY",cat:"dining",price:"$$",desc:"Malaysian chicken rice at Harbour City — coconut chicken soup, coconut rice. TST.",lat:22.2951,lng:114.1665,maps:"https://www.google.com/maps/place/?q=place_id:ChIJLwS-DLsBBDQR7nUPs5lcva0"},
+  {name:"Grand Café (Grand Hyatt)",cat:"dining",price:"$$$",desc:"Grand Hyatt's all-day dining — signature Hainanese chicken rice HKD355, hanging whole poached chickens. Wan Chai.",lat:22.2813,lng:114.1721,maps:"https://www.google.com/maps/place/?q=place_id:ChIJ70bGol4ABDQRHP7MI2iZZ0o"},
+  {name:"Siaw",cat:"dining",price:"$$",desc:"Michelin Bib Gourmand Thai — dry Wagyu beef noodles, Thai boat noodles, satay. TST.",lat:22.2982,lng:114.1747,maps:"https://www.google.com/maps/place/?q=place_id:ChIJC02ULQABBDQRCX9ELPcNgws"},
+  {name:"The Spice House Restaurant",cat:"dining",price:"$",desc:"Thai boat noodles in Wan Chai's Little Bangkok — aromatic pork broth, meatballs, morning glory. $",lat:22.2761,lng:114.1721,maps:"https://www.google.com/maps/place/?q=place_id:ChIJl97sv1wABDQRRf2OUaPhC0s"},
+  {name:"Ming Ming Cart Noodle Bar",cat:"dining",price:"$",desc:"Classic HK cart noodles — choose your toppings: soft-boiled egg, turnip, fried bean curd, pork cartilage. Multiple locations.",lat:22.2777,lng:114.1719,maps:"https://www.google.com/maps/place/?q=place_id:ChIJY9GtszEBBDQR8ovVkFiK_nI"},
+  {name:"Iron Cow Taiwanese Beef Noodles",cat:"dining",price:"$$",desc:"Taiwanese beef noodles — tomato soup with brisket & tendon, chewy wheat noodles. Multiple locations.",lat:22.283,lng:114.1544,maps:"https://www.google.com/maps/place/?q=place_id:ChIJrwhb6ysBBDQR99VjaFpGZTE"},
+  {name:"Kamitora Tonkotsu Ramen",cat:"dining",price:"$$",desc:"Rich, creamy tonkotsu pork-bone broth — homemade meatballs, tender roast pork. Wan Chai.",lat:22.2758,lng:114.1714,maps:"https://www.google.com/maps/place/?q=place_id:ChIJM_KpTQ0BBDQRKgmIRgTfbyE"},
+  {name:"Ho Hung Kee",cat:"dining",price:"$$",desc:"Michelin-starred — legendary beef hor fun with wok hei, wonton noodles, congee. Causeway Bay.",lat:22.2798,lng:114.1838,maps:"https://www.google.com/maps/place/?q=place_id:ChIJ-2pGxlYABDQRvNCrDm656xI"},
+  {name:"Shanghai Plus",cat:"dining",price:"$$$",desc:"Shanghainese in Wan Chai — Shanghai stir-fried handmade thick noodles, XLB, crystal tiger prawn.",lat:22.2802,lng:114.1717,maps:"https://www.google.com/maps/place/?q=place_id:ChIJWelQNnsBBDQRUOcvgzPi_wM"},
+  {name:"Mak's Noodles",cat:"dining",price:"$$",desc:"Since 1968 — shrimp wonton & beef brisket noodles, bouncy Guangdong noodles. Central.",lat:22.283,lng:114.1546,maps:"https://www.google.com/maps/place/?q=place_id:ChIJcSK1XXsABDQRNqW5u_vh6So"},
+  {name:"Din Tai Fung",cat:"dining",price:"$$",desc:"World-famous XLB chain — steamed pork xiao long bao HKD70, black truffle version when available. Multiple locations.",lat:22.2794,lng:114.1864,maps:"https://www.google.com/maps/place/?q=place_id:ChIJ__-_EVQABDQR7rTtQj1dhiY"},
+  {name:"yè shanghai",cat:"dining",price:"$$$",desc:"Michelin-starred Shanghainese — delicate XLB HKD92, hairy crab roe dumplings in season. Admiralty/TST.",lat:22.2778,lng:114.1654,maps:"https://www.google.com/maps/place/?q=place_id:ChIJRUISt2cABDQRwS2lqS9hzws"},
+  {name:"Paradise Dynasty",cat:"dining",price:"$$",desc:"Colourful 8-flavour XLB rainbow set — foie gras, black truffle, crab roe. Causeway Bay.",lat:22.2783,lng:114.1831,maps:"https://www.google.com/maps/place/?q=place_id:ChIJKT11JVEABDQRDGnhVM2OuK4"},
+  {name:"lulu BAOBAO",cat:"dining",price:"$$",desc:"Michelin Bib Gourmand — handmade XLB with abundant soup, glass-fronted kitchen. Wong Chuk Hang & Tai Kwun.",lat:22.2488,lng:114.1664,maps:"https://www.google.com/maps/place/?q=place_id:ChIJ95wnSWQBBDQRTPc-eqhFGdo"},
+  {name:"Dim Sum Library",cat:"dining",price:"$$$",desc:"Innovative all-day dim sum — dan dan XLB, cocktail pairings. Admiralty. $$$",lat:22.2769,lng:114.1653,maps:"https://www.google.com/maps/place/?q=place_id:ChIJJyidMWYABDQRsEuQ0-IgnIU"},
+  {name:"ThinkWine",cat:"wine",price:"$$",desc:"600+ labels, 4 pro sommeliers — Chateau to Table French wines, raclette, finger food. Soho, Central.",lat:22.2821,lng:114.1535,maps:"https://www.google.com/maps/place/?q=place_id:ChIJvZPIy28BBDQRU5M_tgkj_3Q"},
+  {name:"James Suckling Wine Central",cat:"wine",price:"$$$",desc:"600 wines rated 90pts+ — wine by glass, lamb chops, fish of the day. Soho, Central.",lat:22.2819,lng:114.1527,maps:"https://www.google.com/maps/place/?q=place_id:ChIJP7S_nKEBBDQRT5eGZCTo7Ks"},
+  {name:"CORKS Wine & Bar",cat:"wine",price:"$$",desc:"Independent French wine producers & family vineyards — small nibbles, buzzy Fri/Sat nights. Hollywood Road, Sheung Wan. ⭐ 4.8",lat:22.2852,lng:114.149,maps:"https://www.google.com/maps/place/?q=place_id:ChIJN4G-RtIBBDQRBpQDs5dzShI"},
+  {name:"La Cabane Wine Bistro",cat:"wine",price:"$$",desc:"Natural wine pioneer — 18 pages of low-intervention wines, French bistro food. Hollywood Road, Central.",lat:22.2829,lng:114.1528,maps:"https://www.google.com/maps/place/?q=place_id:ChIJ2blEnXsABDQRe-0eD_ony8g"},
+  {name:"Aroma Wine Bistro",cat:"wine",price:"$$$",desc:"Burgundy specialist — signature wine flight, Sichuan duck prosciutto, roasted yellow chicken. Causeway Bay.",lat:22.278,lng:114.1851,maps:"https://www.google.com/maps/place/?q=place_id:ChIJB24dGaEBBDQRN23zVQ0vLM4"},
+  {name:"Terroirs by LQV",cat:"wine",price:"$$",desc:"2,000+ French wine references — largest public French wine collection in HK, artisanal cheese & produce. Central.",lat:22.2826,lng:114.1547,maps:"https://www.google.com/maps/place/?q=place_id:ChIJCdwTc2ABBDQRXM6xt0WARns"},
+  {name:"Scarlett Café & Wine Bar",cat:"wine",price:"$$",desc:"Refined terroir wine with rustic bistro fare — Merlot, Pinot Noir, NZ steaks & lamb. TST.",lat:22.3021,lng:114.1764,maps:"https://www.google.com/maps/place/?q=place_id:ChIJHV741O4ABDQRdgseg2opm54"},
+  {name:"Crushed Wine Bar",cat:"wine",price:"$$",desc:"Sustainable New World wines — Australian, NZ, SA, USA. Creative food menu by Camille Glass. Sai Ying Pun. ⭐ 4.9",lat:22.286,lng:114.1432,maps:"https://www.google.com/maps/place/?q=place_id:ChIJObaa_5b_AzQRfK5z-lPjNks"},
+  {name:"La Cave",cat:"wine",price:"$$",desc:"French wine specialist — Burgundy, Champagne, Rhone, Alsace. Events, tastings, private parties. Sai Ying Pun. ⭐ 4.8",lat:22.2855,lng:114.142,maps:"https://www.google.com/maps/place/?q=place_id:ChIJ-Qrmt8n_AzQRR49PTOMU-mg"},
+  {name:"mato coffee wine",cat:"wine",price:"$$",desc:"150+ New World & Old World references — Australian, Georgian, Uruguayan, Greek wines. Sheung Wan.",lat:22.2858,lng:114.1543,maps:"https://www.google.com/maps/place/?q=place_id:ChIJrag5n4IBBDQRHl_t2OUCHXY"},
+  {name:"Silène",cat:"wine",price:"$$",desc:"Intimate wine bar — broad sparkling/white/rosé/orange/red selection, French mains, oysters. Aberdeen St, Central. ⭐ 4.8",lat:22.2836,lng:114.1525,maps:"https://www.google.com/maps/place/?q=place_id:ChIJwzSnvkEBBDQRFrdQ-hl73tE"},
+  {name:"Zau Mei",cat:"wine",price:"$$",desc:"Cool Wan Chai wine bar — Old World reds, whites, sparkling, cold cuts, HK snacks. Outdoor seating.",lat:22.2757,lng:114.1705,maps:"https://www.google.com/maps/place/?q=place_id:ChIJKQNbT7wBBDQRkvOkruH0i8A"},
+  {name:"Ser Wong Fun",cat:"dining",price:"$$",desc:"Century-old snake soup & claypot rice — duck sausage, salted fish pork, cured meats all housemade. Central.",lat:22.2828,lng:114.1542,maps:"https://www.google.com/maps/place/?q=place_id:ChIJRaZlaHsABDQRZcUtxH2thQc"},
+  {name:"Four Seasons Pot Rice",cat:"dining",price:"$",desc:"Temple Street claypot institution — 30+ years, charcoal-fired, 30 varieties. Chicken & Chinese sausage. Yau Ma Tei.",lat:22.3115,lng:114.1705,maps:"https://www.google.com/maps/place/?q=place_id:ChIJaV0KVcAABDQR5BgP_JxodlU"},
+  {name:"Hing Kee Restaurant",cat:"dining",price:"$",desc:"Temple Street claypot grandma — 60 mix-and-match variations, minced beef & Chinese sausage. Yau Ma Tei.",lat:22.3114,lng:114.1701,maps:"https://www.google.com/maps/place/?q=place_id:ChIJ8-gzV8AABDQRPqSwVu2E12s"},
+  {name:"Siu Wah Kitchen",cat:"dining",price:"$",desc:"Hidden claypot rice in Shau Kei Wan cooked food market — foie gras garlic beef, classic lap cheong. Very local.",lat:22.2802,lng:114.2272,maps:"https://www.google.com/maps/place/?q=place_id:ChIJUVWA0HkBBDQRIzok4d9bLvg"},
+  {name:"Kwan Kee Claypot Rice",cat:"dining",price:"$$",desc:"Michelin Bib Gourmand — smoky charcoal claypot rice, master uncle with decades of craft. Sai Ying Pun.",lat:22.287,lng:114.143,maps:"https://www.google.com/maps/place/?q=place_id:ChIJO38vl4D_AzQRWestb7UvqH8"},
+  {name:"Daychild Vintage & Goods",cat:"shopping",sub:"vintage",desc:"Curated American vintage clothing & goods — workwear, militaria, sportswear. Causeway Bay.",lat:22.2789,lng:114.1839,maps:"https://www.google.com/maps/place/?q=place_id:ChIJG9yZ68YABDQRgYE4fLL-Tzw"},
+  {name:"Dongpohk",cat:"shopping",sub:"antiques",desc:"Nostalgic tong lau shop — HK snacks, vintage 50s–80s antiques, local artist ceramics & jewellery. Sheung Wan.",lat:22.2832,lng:114.1509,maps:"https://www.google.com/maps/place/?q=place_id:ChIJCT7FVocBBDQR_gMRjHkDmiM"},
+  {name:"Good Bad Creative",cat:"shopping",sub:"vintage",desc:"Sham Shui Po vintage & nostalgia — old HK memorabilia, film cameras, a shop cat. Hidden gem.",lat:22.329,lng:114.1634,maps:"https://www.google.com/maps/place/?q=place_id:ChIJ58eyh-MBBDQR8T1796dG_ps"},
+  {name:"Baker by LUBUDS",cat:"bakery",price:"$",desc:"Premium egg tarts with croissant base — caramelised top, wobbly filling. Fresh batches 9:30am, 12pm & 3pm. Quarry Bay.",lat:22.2856,lng:114.2177,maps:"https://www.google.com/maps/place/?q=place_id:ChIJ_XjteQABBDQRbcN3iSbMyMY"},
+  {name:"Shun Hing Restaurant",cat:"bakery",price:"$",desc:"40-year-old cha chaan teng — classic egg tarts HKD7 (buy 5 get 1 free), baked pork chop rice, milk tea. Kowloon City.",lat:22.329,lng:114.1907,maps:"https://www.google.com/maps/place/?q=place_id:ChIJL0YtuyoHBDQRyeaaDqY5Oto"},
+  {name:"Gold Garden Cafe",cat:"bakery",price:"$",desc:"Famous multi-layer flaky egg tart — Lucas Sin approved, HKD11. Queue expected. Cheung Sha Wan.",lat:22.3384,lng:114.1567,maps:"https://www.google.com/maps/place/?q=place_id:ChIJS6k75U0HBDQRsFQ5Eee9emA"},
+  {name:"Soft Thunder Bakery",cat:"bakery",price:"$",desc:"Artisanal egg tarts v3.0 — Japanese + French butter crust, silkier custard filling. Kennedy Town & Wan Chai.",lat:22.2825,lng:114.1293,maps:"https://www.google.com/maps/place/?q=place_id:ChIJoaYSOLD_AzQRFFaVwxJcUB4"},
+  {name:"San Hing Bakery",cat:"bakery",price:"$",desc:"Tiny Sham Shui Po legend — HK-style egg tart for only HKD4. Light, layered, not too sweet.",lat:22.3287,lng:114.158,maps:"https://www.google.com/maps/place/?q=place_id:ChIJzQv-ObIABDQRfwbMlxlQXic"},
+  {name:"Nan Lian Garden",cat:"activities",desc:"Tang Dynasty-style classical garden — free entry, pavilions, rockery, koi ponds. Beside Chi Lin Nunnery. Diamond Hill.",lat:22.3396,lng:114.2045,maps:"https://www.google.com/maps/place/?q=place_id:ChIJA4W7G8UGBDQRz2wLW8y0a-8"},
+  {name:"Chi Lin Nunnery",cat:"activities",desc:"Stunning Buddhist nunnery in Tang Dynasty wooden architecture — tranquil courtyards, no photos inside. Free. Diamond Hill.",lat:22.3405,lng:114.2051,maps:"https://www.google.com/maps/place/?q=place_id:ChIJk1087MQGBDQRxq30TyIGStU"},
+  {name:"Kowloon Walled City Park",cat:"activities",desc:"Chinese garden on site of the infamous Walled City — free exhibition inside, pavilions, winding paths. Kowloon City.",lat:22.3321,lng:114.1903,maps:"https://www.google.com/maps/place/?q=place_id:ChIJa6mQFCoHBDQRng426-QsDHg"},
+  {name:"Lingnan Garden",cat:"activities",desc:"Serene classical garden in residential Lai Chi Kok — pavilions, ponds, lush greenery. Free entry.",lat:22.3345,lng:114.1393,maps:"https://www.google.com/maps/place/?q=place_id:ChIJf41i61T_AzQR98vqG688Pf8"},
+  {name:"Tian Tan Big Buddha",cat:"activities",desc:"Iconic 34m bronze Buddha on Lantau — 268 steps to the top, panoramic mountain & sea views. Take the Ngong Ping cable car.",lat:22.254,lng:113.905,maps:"https://www.google.com/maps/place/?q=place_id:ChIJMU72avZYATQRcPDlSybkD00"},
+  {name:"10,000 Buddhas Monastery",cat:"activities",desc:"400-step hillside path lined with golden Buddhas — free entry, serene temple at top, city views. Sha Tin. Closes 5pm.",lat:22.3876,lng:114.1848,maps:"https://www.google.com/maps/place/?q=place_id:ChIJVfMp1N8GBDQRFyObcS_orlE"},
+  {name:"Upper Lascar Row (Cat Street)",cat:"activities",desc:"Antiques & curio market in Sheung Wan — jade, vintage HK trinkets, flea market stalls & boutique shops. Haggle welcome.",lat:22.2851,lng:114.1494,maps:"https://www.google.com/maps/place/?q=place_id:ChIJn-4DpX4ABDQRTsFq0gAmdHQ"},
+  {name:"Top Bowl Tenpin Bowling",cat:"activities",desc:"40-lane bowling alley at Kai Tak — modern facilities, group-friendly. Kai Tak Mall.",lat:22.3265,lng:114.1963,maps:"https://www.google.com/maps/place/?q=place_id:ChIJs0D_AQ0BBDQRd6lOYGikzdg"},
+  {name:"A.P.E. (A Perfect Escape)",cat:"bars",price:"$$",desc:"Hidden whisky sanctuary in Tin Hau — push through the frosted door behind Esc Coffee, 30+ scotches, flights & bar bites.",lat:22.285,lng:114.1912,maps:"https://www.google.com/maps/search/?api=1&query=22.285,114.191"},
+  {name:"The Aubrey",cat:"bars",price:"$$$$",desc:"Eccentric izakaya cocktail bar on 25/F of Mandarin Oriental — art Nouveau meets Japanese spirit, harbour views, omakase cocktails.",lat:22.2819,lng:114.1594,maps:"https://www.google.com/maps/place/?q=place_id:ChIJvx01wmkBBDQREcbNYoFy2pI"},
+  {name:"Gokan",cat:"bars",price:"$$$",desc:"Sensory cocktail atelier in Central — five-senses menu, Japanese precision, flavour-forward cocktails & Napolitan pasta.",lat:22.2802,lng:114.1565,maps:"https://www.google.com/maps/place/?q=place_id:ChIJR5ZeewABBDQRSqwvf8DTOxY"},
+  {name:"Tell Camellia",cat:"bars",price:"$$$",desc:"Hidden tea-infused cocktail den at H Code Central — worldly \"teatails\", tasting flights, intimate & artful. ⭐ 4.7",lat:22.2823,lng:114.1543,maps:"https://www.google.com/maps/place/?q=place_id:ChIJCQRTIMQBBDQRlbmNEGvZ2lc"},
+  {name:"DarkSide",cat:"bars",price:"$$$",desc:"Rosewood HK's jazz sanctuary on the \"dark side\" — rare spirits, cigars, nightly live jazz, harbour views. TST.",lat:22.2951,lng:114.176,maps:"https://www.google.com/maps/place/?q=place_id:ChIJBTLK8y4BBDQRvXH-We36yhc"},
+  {name:"Quinary",cat:"bars",price:"$$$",desc:"Multisensory molecular cocktail pioneer — fuses all five senses per drink. Award-winning Antonio Lai. Hollywood Road. ⭐ 4.6",lat:22.2827,lng:114.1529,maps:"https://www.google.com/maps/place/?q=place_id:ChIJTaA7dnsABDQR-Pf0MbiDwhM"},
+  {name:"The Iron Fairies",cat:"bars",price:"$$",desc:"Underground fairy-tale bar on Hollywood Road — theatrical cocktails, live music from 10pm, industrial-fantasy décor. ⭐ 4.5",lat:22.282,lng:114.1546,maps:"https://www.google.com/maps/place/?q=place_id:ChIJr-wKP3sABDQR7Mz6XkgCCpA"},
+  {name:"Foxglove",cat:"bars",price:"$$$",desc:"1950s speakeasy behind an umbrella shop — vintage jet-engine flair, jazz nights, antique martini cart. Duddell St, Central.",lat:22.2797,lng:114.1571,maps:"https://www.google.com/maps/place/?q=place_id:ChIJ2QA4ImUABDQRiUPs-D3wdOQ"},
+  {name:"PDT (Please Don't Tell)",cat:"bars",price:"$$$",desc:"Globally revered speakeasy behind a phone booth in MO Bar — New York cocktail heritage, gourmet hot dogs, intimate.",lat:22.2806,lng:114.1577,maps:"https://www.google.com/maps/place/?q=place_id:ChIJTw915mQABDQRwSlmEMmNu-s"},
+  {name:"The Wise King",cat:"bars",price:"$$",desc:"Hidden behind a royal mural in Soho — tapas-inspired cocktails, velvet-lined basement sanctuary, legendary Negronis. ⭐ 4.6",lat:22.2821,lng:114.1528,maps:"https://www.google.com/maps/place/?q=place_id:ChIJMVVKbBMBBDQR2N-iQqUqPRc"},
+  {name:"Ping Pong 129 Gintonería",cat:"bars",price:"$$",desc:"Spanish gin & tonic bar beneath a red door in Sai Ying Pun — tapas, art exhibitions, live music, in a former ping-pong house.",lat:22.2863,lng:114.1397,maps:"https://www.google.com/maps/place/?q=place_id:ChIJp_bcNoH_AzQRpzArJrmA0oY"},
+  {name:"Ophelia",cat:"bars",price:"$$$$",desc:"Lavish peacock-themed bar by Ashley Sutton at Lee Tung Ave — swinging cages, live performers, theatrical cocktails. Wan Chai.",lat:22.2762,lng:114.1725,maps:"https://www.google.com/maps/place/?q=place_id:ChIJZ0uUyVwABDQR5sOpNi3aw0o"},
+  {name:"Salon No. 10",cat:"bars",price:"$$$",desc:"Artsy cave-like member's salon on Arbuthnot Rd — jazz & DJs Wed–Sat, intimate curved interior, Hong Kong's creative crowd.",lat:22.28,lng:114.1548,maps:"https://www.google.com/maps/place/?q=place_id:ChIJkRHH3HoABDQRqXPusC4q3SQ"},
+  {name:"The Birdcage",cat:"bars",price:"$$",desc:"1940s Shanghai-inspired lounge on Knutsford Terrace — lacquered wood, red lighting, real birdcages, cocktails with character.",lat:22.3012,lng:114.174,maps:"https://www.google.com/maps/search/?api=1&query=22.301,114.174"},
+  {name:"Argo",cat:"bars",price:"$$$$",desc:"Boundary-pushing cocktail bar at Four Seasons HK — futuristic botanical conservatory, rare spirits, award-winning drinks. ⭐ 4.4",lat:22.2864,lng:114.1571,maps:"https://www.google.com/maps/place/?q=place_id:ChIJa0m0W30BBDQRJIxB7UyZMIU"},
+  {name:"Uncle Ming's",cat:"bars",price:"$$$",desc:"Whisky lover's perch on 25/F above Wan Chai — 80+ global labels, skyline views, innovative whisky cocktails.",lat:22.2792,lng:114.1769,maps:"https://www.google.com/maps/place/?q=place_id:ChIJGezZR1ABBDQR0vAmda0pelM"},
+  {name:"001",cat:"bars",price:"$$",desc:"Original HK speakeasy tucked inside Tai Kwun — exotic whiskies, elevated cocktails, moody clandestine atmosphere. Central.",lat:22.281,lng:114.1542,maps:"https://www.google.com/maps/place/?q=place_id:ChIJifmVn3wABDQR0fOL6ZauHfc"},
+  {name:"The Green Door",cat:"bars",price:"$$",desc:"Underground bar on Wellington St — whimsical cocktails named after women, the 3-day apple pie is legendary. Central.",lat:22.2836,lng:114.1542,maps:"https://www.google.com/maps/place/?q=place_id:ChIJ980SafsBBDQRFOUfzCe7WFk"},
+  {name:"The Diplomat",cat:"bars",price:"$$$",desc:"Cosy speakeasy at H Code Central — inventive cocktails, the famed Wagyu burger, warm intimate hospitality. ⭐ 4.5",lat:22.2823,lng:114.1542,maps:"https://www.google.com/maps/place/?q=place_id:ChIJjYYtUVIBBDQR5DWJ-IDxEwI"},
+  {name:"Artifact",cat:"bars",price:"$$$",desc:"Subterranean sci-fi speakeasy under Jardine House — cistern-inspired architecture, aged-spirits cocktails. Closed Mon & Sun. ⭐ 4.6",lat:22.283,lng:114.1593,maps:"https://www.google.com/maps/place/?q=place_id:ChIJk-OHxxwBBDQRluulNJxgBVI"},
+  {name:"Mizunara: The Library",cat:"bars",price:"$$$$",desc:"Ginza-style whisky sanctuary atop Wan Chai — 700+ whiskies, leather chairs, Japanese terrace, bespoke cocktails. Closed Mon/Sun. ⭐ 4.6",lat:22.2794,lng:114.1791,maps:"https://www.google.com/maps/place/?q=place_id:ChIJuUxTAloABDQRqwQJPpJVXU0"},
+  {name:"COA",cat:"bars",price:"$$",desc:"Asia's premier agave bar — 41-page tequila & mezcal menu, handcrafted cocktails. No reservations, go early. Central. ⭐ 4.6",lat:22.284,lng:114.1521,maps:"https://www.google.com/maps/place/?q=place_id:ChIJ__9zd3wABDQR9jco3PBl3bg"},
+  {name:"The Pontiac",cat:"bars",price:"$",desc:"HK's unapologetic rock 'n' roll dive bar — cold beers, jukebox, dangling bras, no judgment. Central. ⭐ 4.6",lat:22.2816,lng:114.1535,maps:"https://www.google.com/maps/place/?q=place_id:ChIJ5YflD3sABDQRslxfEP_Kd_Q"},
+  {name:"Terrible Baby",cat:"bars",price:"$$",desc:"Tropical terrace speakeasy at Eaton HK — herbaceous cocktails, indie beats, rooftop garden. Jordan.",lat:22.308,lng:114.1717,maps:"https://www.google.com/maps/place/?q=place_id:ChIJ6ZGu8vYBBDQRV3oF7OecbX8"},
+  {name:"Ozone",cat:"bars",price:"$$$$",desc:"World's highest rooftop bar on 118/F of Ritz-Carlton ICC — 490m up, panoramic Victoria Harbour views, futuristic neon.",lat:22.3034,lng:114.1602,maps:"https://www.google.com/maps/place/?q=place_id:ChIJdb45FZEABDQRHme_jiOE4-4"},
+  {name:"Dr. Fern's Gin Parlour",cat:"bars",price:"$$$",desc:"Secret gin clinic under Landmark Atrium — 200+ premium gins, botanical cocktails, fresh-carved ice, botanical décor. Central.",lat:22.2828,lng:114.1553,maps:"https://www.google.com/maps/place/?q=place_id:ChIJJTU89WQABDQR5mFjBmGlPzQ"},
+  {name:"Dirty Laundry",cat:"bars",price:"$$",desc:"Speakeasy behind a laundromat façade on Lockhart Rd — cocktails in teacups, neon glow, shisha. Wan Chai.",lat:22.2779,lng:114.172,maps:"https://www.google.com/maps/place/?q=place_id:ChIJcV1sK7MBBDQRYAYPVg1ISlg"},
+  {name:"Penicillin",cat:"bars",price:"$$$",desc:"HK's first closed-loop sustainable bar — inventive upcycled-ingredient cocktails, koji fried chicken. Hollywood Road, Central. ⭐ 4.5",lat:22.2822,lng:114.154,maps:"https://www.google.com/maps/place/?q=place_id:ChIJcT8YnGABBDQRrZTqc7PxIr8"},
+  {name:"The Old Man",cat:"bars",price:"$$",desc:"Ernest Hemingway tribute speakeasy in Soho — cocktails named after his stories, copper-strip bar, brilliant mixology. ⭐ 4.6",lat:22.2828,lng:114.1516,maps:"https://www.google.com/maps/place/?q=place_id:ChIJDaB2lHsABDQRH1_XpKoA6dU"},
+  {name:"Lockdown",cat:"bars",price:"$$",desc:"Speakeasy entered through a 'toilet' door on Hollywood Road — Prohibition-era cocktails, moody and cheeky. Central.",lat:22.2821,lng:114.1538,maps:"https://www.google.com/maps/place/?q=place_id:ChIJ-4JgrdEBBDQRKXX1Y7FtGkA"},
+
+  {name:"Man Kee Cart Noodles",cat:"street",price:"$",desc:"Michelin Bib Gourmand 8 years running — classic HK cart noodles, Swiss-sauce chicken wings, pork brisket. Sham Shui Po.",lat:22.3318,lng:114.1628,maps:"https://www.google.com/maps/place/?q=place_id:ChIJfcIisbQABDQREpaFivHhaRc"},
+  {name:"Mak Man Kee Noodle Shop",cat:"street",price:"$",desc:"Michelin-recommended — plump tiger prawn wontons, bouncy noodles. Jordan. Open till 12:30am.",lat:22.3047,lng:114.1706,maps:"https://www.google.com/maps/place/?q=place_id:ChIJcaCRCusABDQRbEmVNBREGAM"},
+  {name:"Kwan Kee Bamboo Noodles",cat:"street",price:"$",desc:"Michelin Bib Gourmand — hand-pressed bamboo noodles, springy texture, incredibly friendly owners. Cheung Sha Wan.",lat:22.337,lng:114.1577,maps:"https://www.google.com/maps/place/?q=place_id:ChIJg798vE0HBDQRfwVztV1nSfc"},
+  {name:"I.T Store",cat:"shopping",sub:"multi-brand",desc:"HK's top multi-brand flagship — curated designer & streetwear across multiple locations. Hysan One, Causeway Bay.",lat:22.2781,lng:114.1838,maps:"https://www.google.com/maps/place/?q=place_id:ChIJRTMWOVEABDQR08FLo3GCURw"},
+  {name:"D-MOP",cat:"shopping",sub:"multi-brand",desc:"Contemporary streetwear & avant-garde labels — Human Made, rare footwear, alternative brands. Causeway Bay.",lat:22.2816,lng:114.1857,maps:"https://www.google.com/maps/place/?q=place_id:ChIJ9Ycq0FUABDQRxa1Za9ysqgY"},
+  {name:"Comme des Garçons",cat:"shopping",sub:"designer",desc:"Rei Kawakubo's avant-garde label — full CDG collection in Central basement. Ice House St.",lat:22.2807,lng:114.1584,maps:"https://www.google.com/maps/place/?q=place_id:ChIJ74ye8GQABDQRR05hDTe4U2g"},
+  {name:"Yohji Yamamoto",cat:"shopping",sub:"designer",desc:"HK's only Yohji flagship — spacious store, full collection, excellent service. K11 Musea, TST.",lat:22.2941,lng:114.1749,maps:"https://www.google.com/maps/place/?q=place_id:ChIJa6KGmPEABDQRbRj8iYwi9bk"},
+  {name:"Midwest Vintage",cat:"shopping",sub:"vintage",desc:"Upcycled & military vintage — unique reworked pieces, boots, army memorabilia. Mong Kok.",lat:22.3197,lng:114.1682,maps:"https://www.google.com/maps/place/?q=place_id:ChIJ7Qqg8McABDQRapMPry6X7Xw"},
+  {name:"JOYCE",cat:"shopping",sub:"multi-brand",desc:"HK's original luxury multi-brand — unique designer collaborations, curated high-end fashion. Pacific Place, Admiralty.",lat:22.2776,lng:114.1651,maps:"https://www.google.com/maps/place/?q=place_id:ChIJYbUj0mcABDQRiIP-_VizR7s"},
+  {name:"K11 Musea",cat:"shopping",sub:"mall",desc:"Museum-retail destination on TST waterfront — luxury brands, art installations, harbour promenade. Art meets shopping.",lat:22.2942,lng:114.1739,maps:"https://www.google.com/maps/place/?q=place_id:ChIJJaeB3_MBBDQRMuGmb2yQxGE"},
+  {name:"Sim City",cat:"shopping",sub:"electronics",desc:"Mong Kok's legendary electronics & camera mall — new & used cameras, lenses, peripherals. Cash preferred.",lat:22.3177,lng:114.1702,maps:"https://www.google.com/maps/place/?q=place_id:ChIJA440KHIBBDQRWvQam6m87Jk"},
+  {name:"PMQ",cat:"shopping",sub:"design",desc:"Former Police Married Quarters — indie designer studios, concept shops, local brands, art exhibitions. Central.",lat:22.2834,lng:114.1517,maps:"https://www.google.com/maps/place/?q=place_id:ChIJq6q6jXsABDQRstiV2TVhFpE"},
+  {name:"The Listening Room",cat:"activities",desc:"All-analog vinyl listening room & record shop in TST — curated international collection, passionate staff. A music lover's pilgrimage. ⭐ 4.7",lat:22.2959,lng:114.1729,maps:"https://www.google.com/maps/place/?q=place_id:ChIJy_YuBoUBBDQRX3xoC2bdVV8"},
+  {name:"Oma",cat:"bars",price:"$$",desc:"Intimate underground techno & house club on Wyndham St — legendary long-running electronic music venue. Wed–Sat only.",lat:22.2819,lng:114.1546,maps:"https://www.google.com/maps/place/?q=place_id:ChIJ1Uw9P3sABDQRKFICNHagdzw"},
+  {name:"Social Room",cat:"bars",price:"$$",desc:"Daytime café, Friday/Saturday club — Funktion-One sound, techno & house, intimate atmosphere. Stanley St, Central.",lat:22.2834,lng:114.1545,maps:"https://www.google.com/maps/place/?q=place_id:ChIJW9qEX3sABDQRyBEOaj9An1Y"},
+  {name:"Tai Kwun Contemporary",cat:"culture",desc:"JC Contemporary at Tai Kwun — 15,000 sq ft contemporary art gallery in restored historic prison. Free. Central.",lat:22.2811,lng:114.1536,maps:"https://www.google.com/maps/place/?q=place_id:ChIJmUpm56ABBDQRwqDIMeDL-4o"},
+  {name:"宀 Club",cat:"bars",price:"$$",desc:"HK's finest electronic music club — Funktion-One system, focused programming, safe & inclusive. Sheung Wan. Fri–Sat only. ⭐ 4.5",lat:22.2869,lng:114.1517,maps:"https://www.google.com/maps/place/?q=place_id:ChIJGb-WqFsBBDQRgbKFPguBkD0"},
+  {name:"Thy Lab",cat:"culture",desc:"Back-alley creative community space in Sham Shui Po — film screenings, gatherings, local culture events. Sat extended hours. ⭐ 5.0",lat:22.3278,lng:114.1639,maps:"https://www.google.com/maps/place/?q=place_id:ChIJO5G-ObQABDQRGnLdWseWJ7o"},
+
+
+  {name:"Tai Yip Art Bookshop",cat:"books",sub:"art books",desc:"Specialist Chinese art & reference books — hidden gem on 3/F Conwell House. Knowledgeable owner. Central.",lat:22.2825,lng:114.1553,maps:"https://www.google.com/maps/place/?q=place_id:ChIJLYfB1tgBBDQR4hYc-92tUmY"},
+  {name:"Kubrick",cat:"books",sub:"books + café",desc:"Indie bookshop-café beside Broadway Cinematheque — art, film, literature books + good coffee. Yau Ma Tei.",lat:22.3108,lng:114.1689,maps:"https://www.google.com/maps/place/?q=place_id:ChIJlSXva8AABDQRTEW6cR6gd90"},
+  {name:"Lok Man Rare Books",cat:"books",sub:"rare books",desc:"Premier rare & antiquarian bookshop — first editions, photography, Beat Generation. Leather chairs, brilliant owner. Pedder Building, Central. Closed Mon/Sun. ⭐ 4.7",lat:22.2819,lng:114.1570,maps:"https://www.google.com/maps/place/?q=place_id:ChIJpRQu4noABDQRVdOzHVvQx6E"},
+  {name:"Lily Bookshop",cat:"books",sub:"secondhand",desc:"Beloved secondhand bookshop — teetering stacks of quality English fiction & non-fiction, great bargains. Sheung Wan. ⭐ 4.6",lat:22.2851,lng:114.1527,maps:"https://www.google.com/maps/place/?q=place_id:ChIJI1AdbHsABDQRdm2kpAGCK-s"},
+  {name:"Muse Art and Books",cat:"books",sub:"books + bar",desc:"Bookshop-gallery-wine bar hybrid at Hotel Stage — jazz performances, happy hour 5–9pm. Jordan. ⭐ 4.3",lat:22.3075,lng:114.1725,maps:"https://www.google.com/maps/place/?q=place_id:ChIJ9y_AEuoABDQROs4UwBOcfYg"},
+
+  {name:"Eslite Spectrum (TST)",cat:"books",sub:"lifestyle bookstore",desc:"Taiwanese lifestyle bookstore brand — books, design goods, indie brands. Star House, TST waterfront. Open till 10pm.",lat:22.2945,lng:114.1688,maps:"https://www.google.com/maps/place/?q=place_id:ChIJ7fdAWz8BBDQR0QXWYI60ZS0"},
+  {name:"Eslite (Causeway Bay)",cat:"books",sub:"lifestyle bookstore",desc:"Three floors of books, design, boutiques & events — the flagship HK location. Hysan Place, Causeway Bay. Open till 10pm.",lat:22.2797,lng:114.1838,maps:"https://www.google.com/maps/place/?q=place_id:ChIJqaEEx1YABDQR1hvP_ORaUWY"},
+
+  {name:"Chan Chi Kee Cutlery",cat:"shopping",sub:"knives + cookware",desc:"Legendary HK cleaver & wok institution — carbon steel cleavers, commercial-grade woks & tools. Shanghai St, Yau Ma Tei.",lat:22.3115,lng:114.1698,maps:"https://www.google.com/maps/place/?q=place_id:ChIJ-7xYWMAABDQRdmbaUGvKBUQ"},
+  {name:"King Tak Hong",cat:"shopping",sub:"ceramics + cookware",desc:"Comprehensive porcelain, ceramics & kitchenware — Japanese & Chinese ceramics, cookware, restaurant supply. Wan Chai. Wed–Sat only.",lat:22.2760,lng:114.1705,maps:"https://www.google.com/maps/place/?q=place_id:ChIJrzb3KF0ABDQRCpDKqRc4QwY"},
+  {name:"Syoukon Hamono",cat:"shopping",sub:"Japanese knives",desc:"Specialist Japanese knife shop — expert staff, custom fitting, premium blades. Lockhart Rd, Wan Chai. Closed Sun.",lat:22.2784,lng:114.1739,maps:"https://www.google.com/maps/place/?q=place_id:ChIJZ8qqwlYABDQRBCILsoCO7JA"},
+];
+
+const cats = [
+  {id:"all",label:"All"},{id:"shopping",label:"Shopping"},{id:"dining",label:"Dining"},
+  {id:"street",label:"Street Food"},{id:"bakery",label:"Bakeries"},{id:"coffee",label:"Coffee & Tea"},
+  {id:"watches",label:"Watches"},{id:"culture",label:"Culture"},{id:"hotel",label:"Hotels"},
+  {id:"wine",label:"Wine Bars"},{id:"activities",label:"Activities"},{id:"bars",label:"Bars"},
+  {id:"books",label:"Books"},
+];
+
+const catLabels = {shopping:"Shopping",dining:"Dining",bakery:"Bakery",coffee:"Coffee & Tea",
+  watches:"Watches",culture:"Culture",street:"Street Food",hotel:"Hotel",
+  wine:"Wine Bar",activities:"Activities",bars:"Bar"};
+
+const catColors = {
+  shopping:"#D4367A",dining:"#D95A38",bakery:"#C97C1A",coffee:"#0B8A6A",
+  watches:"#1870C4",culture:"#5840D0",street:"#3D8010",hotel:"#888888",
+  wine:"#A01C1C",activities:"#1678A0",bars:"#6B2DA8",books:"#2D7A4F"
+};
+
+let active = "all", viewMode = "list", leafletMap = null, markers = [];
+
+// Filters
+const filtersEl = document.getElementById("filters");
+cats.forEach(c => {
+  const b = document.createElement("button");
+  b.className = "filter-btn" + (c.id === "all" ? " active" : "");
+  b.textContent = c.label;
+  b.onclick = () => {
+    active = c.id;
+    document.querySelectorAll(".filter-btn").forEach(x => x.classList.remove("active"));
+    b.classList.add("active");
+    render();
+  };
+  filtersEl.appendChild(b);
+});
+
+function getFiltered() {
+  const q = document.getElementById("search").value.toLowerCase();
+  return places.filter(p => {
+    const mc = active === "all" || p.cat === active;
+    const mq = !q || p.name.toLowerCase().includes(q) || (p.desc||"").toLowerCase().includes(q);
+    return mc && mq;
+  });
+}
+
+function setView(v) {
+  viewMode = v;
+  document.getElementById("btn-list").classList.toggle("active", v === "list");
+  document.getElementById("btn-map").classList.toggle("active", v === "map");
+  document.getElementById("grid").style.display = v === "list" ? "" : "none";
+  const mapEl = document.getElementById("map");
+  if (v === "map") {
+    mapEl.classList.add("visible");
+    if (!leafletMap) initMap();
+    else updateMarkers();
+  } else {
+    mapEl.classList.remove("visible");
+  }
+  render();
+}
+
+function initMap() {
+  leafletMap = L.map("map", {zoomControl: true}).setView([22.32, 114.17], 12);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    attribution: "© OpenStreetMap contributors",
+    maxZoom: 18
+  }).addTo(leafletMap);
+  updateMarkers();
+}
+
+function makeIcon(cat) {
+  const color = catColors[cat] || "#888";
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20"><circle cx="10" cy="10" r="7" fill="${color}" stroke="white" stroke-width="2"/></svg>`;
+  return L.divIcon({
+    html: svg,
+    className: "",
+    iconSize: [20, 20],
+    iconAnchor: [10, 10],
+    popupAnchor: [0, -12]
+  });
+}
+
+function updateMarkers() {
+  if (!leafletMap) return;
+  markers.forEach(m => leafletMap.removeLayer(m));
+  markers = [];
+  const filtered = getFiltered();
+  document.getElementById("count").textContent = filtered.length + " place" + (filtered.length !== 1 ? "s" : "");
+  filtered.forEach(p => {
+    if (!p.lat || !p.lng) return;
+    const priceStr = p.price ? " · " + p.price : "";
+    const popup = `<strong>${p.name}</strong>${priceStr}<br><span class="pop-cat">${catLabels[p.cat]||p.cat}</span><br>${(p.desc||"").slice(0,80)}${(p.desc||"").length>80?"…":""}<br><a href="${p.maps}" target="_blank">Open in Maps →</a>`;
+    const m = L.marker([p.lat, p.lng], {icon: makeIcon(p.cat)})
+      .bindPopup(popup)
+      .addTo(leafletMap);
+    markers.push(m);
+  });
+}
+
+function render() {
+  if (viewMode === "map") { updateMarkers(); return; }
+  const filtered = getFiltered();
+  document.getElementById("count").textContent = filtered.length + " place" + (filtered.length !== 1 ? "s" : "");
+  const grid = document.getElementById("grid");
+  grid.innerHTML = "";
+  if (!filtered.length) { grid.innerHTML = '<div class="empty">No places found</div>'; return; }
+  filtered.forEach(p => {
+    const a = document.createElement("a");
+    a.className = "card";
+    a.href = p.maps;
+    a.target = "_blank";
+    const priceStr = p.price ? ' <span style="opacity:0.5;font-size:10px">' + p.price + '</span>' : "";
+    const subStr = p.sub ? ' <span style="font-size:9px;opacity:0.5;font-weight:400">' + p.sub + '</span>' : "";
+    a.innerHTML =
+      '<div class="card-top">' +
+        '<span class="card-name">' + p.name + subStr + '</span>' +
+        '<span class="card-cat cat-' + p.cat + '">' + (catLabels[p.cat]||p.cat) + priceStr + '</span>' +
+      '</div>' +
+      '<div class="card-desc">' + (p.desc||"") + '</div>' +
+      '<span class="maps-link">Open in Maps →</span>';
+    grid.appendChild(a);
+  });
+}
+
+render();
+</script>
+</body>
+</html>
