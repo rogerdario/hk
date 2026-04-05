@@ -394,7 +394,6 @@ const catColors = {
   mall:"#E05C8A",jewellery:"#C060A0",beauty:"#E080B0",electronics:"#606090"
 };
 
-const SHOPPING_SUBS = new Set(["shopping","vintage","designer","multi-brand","consignment","knives","ceramics","design","mall","jewellery","beauty","electronics"]);
 let active = "all", viewMode = "list", leafletMap = null, markers = [];
 
 // Filters
@@ -412,10 +411,13 @@ cats.forEach(c => {
   filtersEl.appendChild(b);
 });
 
+const SHOPPING_SUBS = new Set(["vintage","designer","multi-brand","consignment","knives","ceramics","design","mall","jewellery","beauty","electronics"]);
 function getFiltered() {
   const q = document.getElementById("search").value.toLowerCase();
   return places.filter(p => {
-    const mc = active === "all" || p.cat === active;
+    const mc = active === "all"
+      || p.cat === active
+      || (active === "shopping" && SHOPPING_SUBS.has(p.cat));
     const mq = !q || p.name.toLowerCase().includes(q) || (p.desc||"").toLowerCase().includes(q);
     return mc && mq;
   });
